@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Чат-бот | Univigate</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../styles/main.css" />
+    <style>
+      :root {
+        --accent: #007bff;
+        --accent-hover: #0056b3;
+        --border: #e1e3e8;
+        --text-primary: #333;
+        --text-secondary: #666;
+        --text-muted: #999;
+        --bg: #ffffff;
+        --bg-muted: #f5f7fb;
+        --shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+      }
+
+      body {
+        font-family: "Roboto", sans-serif;
+        background: #f5f5f5;
+        color: var(--text-primary);
+        min-height: 100vh;
+      }
+
+      /* Контейнер-заглушка, если вставите фрагмент в другую страницу — можно удалить */
+      .chat-embed-wrapper {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      .chat-widget {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 1000;
+        font-family: "Roboto", sans-serif;
+      }
+
+      .chat-toggle {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: var(--accent);
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: var(--shadow);
+        transition: all 0.25s ease;
+      }
+
+      .chat-toggle:hover {
+        background: var(--accent-hover);
+        transform: translateY(-2px);
+      }
+
+      .chat-toggle svg {
+        width: 26px;
+        height: 26px;
+        fill: #fff;
+        transition: transform 0.25s ease;
+      }
+
+      .chat-toggle.active svg {
+        transform: rotate(90deg);
+      }
+
+      .chat-window {
+        position: absolute;
+        bottom: 76px;
+        right: 0;
+        width: 420px;
+        max-width: calc(100vw - 48px);
+        height: 540px;
+        background: var(--bg);
+        border-radius: 18px;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(16px) scale(0.98);
+        transition: all 0.25s ease;
+      }
+
+      .chat-window.open {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0) scale(1);
+      }
+
+      .chat-window.fullscreen {
+        position: fixed;
+        inset: 24px;
+        width: auto;
+        height: auto;
+        max-width: calc(100vw - 48px);
+        max-height: calc(100vh - 48px);
+        border-radius: 18px;
+      }
+
+      .chat-header {
+        padding: 16px 18px;
+        background: var(--bg-muted);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .mode-switch {
+        margin-left: auto;
+        display: flex;
+        gap: 8px;
+      }
+
+      .mode-btn {
+        padding: 6px 10px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #fff;
+        color: var(--text-secondary);
+        font-size: 0.82rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .mode-btn.active {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+
+      .mode-btn:hover {
+        border-color: var(--accent);
+      }
+
+      .chat-avatar {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #4da3ff, #7c5ce0);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        color: #fff;
+      }
+
+      .chat-info h4 {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+
+      .chat-info span {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+      }
+
+      .chat-close {
+        margin-left: auto;
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: #fff;
+        border: 1px solid var(--border);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+      }
+
+      .chat-close:hover {
+        background: #ffe9e9;
+        border-color: #ff6b6b;
+      }
+
+      .chat-close svg {
+        width: 16px;
+        height: 16px;
+        stroke: var(--text-secondary);
+      }
+
+      .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        background: #fff;
+      }
+
+      .chat-messages::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .chat-messages::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 3px;
+      }
+
+      .message {
+        max-width: 85%;
+        padding: 12px 14px;
+        border-radius: 14px;
+        font-size: 0.95rem;
+        line-height: 1.5;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+      }
+
+      .message.user {
+        align-self: flex-end;
+        background: linear-gradient(135deg, #4da3ff, #2f80ed);
+        color: #fff;
+        border-bottom-right-radius: 6px;
+      }
+
+      .message.bot {
+        align-self: flex-start;
+        background: #f4f7fb;
+        color: var(--text-primary);
+        border: 1px solid var(--border);
+        border-bottom-left-radius: 6px;
+      }
+
+      .message.error {
+        background: #ffecec;
+        border: 1px solid #ffb3b3;
+        color: #c0392b;
+      }
+
+      .message.system {
+        align-self: center;
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        padding: 4px 10px;
+        box-shadow: none;
+      }
+
+      .message pre {
+        background: #111827;
+        color: #e5e7eb;
+        padding: 10px;
+        border-radius: 8px;
+        overflow-x: auto;
+        margin-top: 10px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.85rem;
+      }
+
+      .message code {
+        font-family: "JetBrains Mono", monospace;
+        background: rgba(0, 0, 0, 0.07);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.9em;
+      }
+
+      .typing-indicator {
+        display: none;
+        align-self: flex-start;
+        padding: 12px 14px;
+        background: #f4f7fb;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        border-bottom-left-radius: 6px;
+        margin-left: 16px;
+        margin-bottom: 8px;
+        gap: 6px;
+      }
+
+      .typing-indicator.visible {
+        display: flex;
+      }
+
+      .typing-indicator span {
+        width: 8px;
+        height: 8px;
+        background: var(--accent);
+        border-radius: 50%;
+        animation: bounce 1.4s infinite ease-in-out;
+      }
+
+      .typing-indicator span:nth-child(1) {
+        animation-delay: 0s;
+      }
+      .typing-indicator span:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .typing-indicator span:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      @keyframes bounce {
+        0%,
+        80%,
+        100% {
+          transform: translateY(0);
+        }
+        40% {
+          transform: translateY(-6px);
+        }
+      }
+
+      .chat-input-area {
+        padding: 14px;
+        background: var(--bg-muted);
+        border-top: 1px solid var(--border);
+      }
+
+      .chat-input-wrapper {
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+      }
+
+      .chat-input {
+        flex: 1;
+        padding: 12px 14px;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        color: var(--text-primary);
+        font-family: "Roboto", sans-serif;
+        font-size: 0.95rem;
+        outline: none;
+        resize: none;
+        min-height: 46px;
+        max-height: 120px;
+        transition: border-color 0.2s, box-shadow 0.2s;
+      }
+
+      .chat-input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.12);
+      }
+
+      .chat-input::placeholder {
+        color: var(--text-muted);
+      }
+
+      .chat-send {
+        width: 46px;
+        height: 46px;
+        border-radius: 12px;
+        background: var(--accent);
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        flex-shrink: 0;
+      }
+
+      .chat-send:hover:not(:disabled) {
+        background: var(--accent-hover);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 123, 255, 0.25);
+      }
+
+      .chat-send:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .chat-send svg {
+        width: 18px;
+        height: 18px;
+        fill: #fff;
+      }
+
+      @media (max-width: 480px) {
+        .chat-widget {
+          bottom: 16px;
+          right: 16px;
+        }
+
+        .chat-window {
+          width: calc(100vw - 32px);
+          height: calc(100vh - 120px);
+          bottom: 68px;
+          right: 0;
+          border-radius: 16px;
+        }
+
+        .chat-toggle {
+          width: 56px;
+          height: 56px;
+        }
+
+        .chat-window.fullscreen {
+          inset: 12px;
+          max-width: calc(100vw - 24px);
+          max-height: calc(100vh - 24px);
+          border-radius: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="chat-embed-wrapper"></div>
+
+    <!-- Chat Widget -->
+    <div class="chat-widget">
+      <div class="chat-window" id="chatWindow">
+        <div class="chat-header">
+          <div class="chat-avatar">✨</div>
+          <div class="chat-info">
+            <h4>Univigate AI</h4>
+            <span>Gemini 2.5 Flash</span>
+          </div>
+          <div class="mode-switch">
+            <button
+              class="mode-btn active"
+              id="modeAssistant"
+              onclick="setMode('assistant')"
+            >
+              Ассистент
+            </button>
+            <button class="mode-btn" id="modeTest" onclick="setMode('test')">
+              Генератор тестов
+            </button>
+          </div>
+          <button class="chat-close" onclick="toggleChat()">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+          <div class="welcome-msg">
+            <div class="emoji">👋</div>
+            <h3>Привет!</h3>
+            <p>Я AI-ассистент на базе Gemini. Задайте мне любой вопрос!</p>
+          </div>
+        </div>
+
+        <div class="typing-indicator" id="typingIndicator">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+
+        <div class="chat-input-area">
+          <div class="chat-input-wrapper">
+            <textarea
+              class="chat-input"
+              id="chatInput"
+              placeholder="Напишите сообщение..."
+              rows="1"
+              onkeydown="handleKeyDown(event)"
+            ></textarea>
+            <button class="chat-send" id="sendBtn" onclick="sendMessage()">
+              <svg viewBox="0 0 24 24">
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <button class="chat-toggle" id="chatToggle" onclick="toggleChat()">
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"
+          />
+        </svg>
+      </button>
+    </div>
+
+    <script>
+      // ===== CONFIGURATION =====
+      // API ключ подставляется через GitHub Actions при деплое
+      // Placeholder будет заменён на реальный ключ
+      const API_KEY = "%%GEMINI_API_KEY%%";
+
+      const GEMINI_API_URL =
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+      let currentMode = "assistant";
+      const histories = {
+        assistant: [],
+        test: [],
+      };
+      let conversationHistory = histories[currentMode];
+
+      const SYSTEM_PROMPTS = {
+        assistant: `Ты - дружелюбный AI-ассистент Univigate. 
+Ты помогаешь пользователям с любыми вопросами. 
+Отвечай кратко и по существу на русском языке. 
+Используй эмодзи для лучшей читаемости.
+Если спрашивают про код, форматируй его правильно.`,
+        test: `Ты — AI-конструктор профориентационных тестов Univigate.
+Используй контекст tests.JSON (категории вопросов, правила разнообразия, scoring) как базу.
+
+Правила:
+1) Если пользователь уже назвал сферу (IT, медицина, дизайн и т.п.), углубляй вопросы в этой сфере: реальные сценарии, навыки, ценности, readiness-check.
+2) Если сфера не названа — генерируй 10–15 вопросов (interests, skills, personality, values, real_world) с балансом easy/medium/hard и не более 1 похожего вопроса.
+3) Учитывай класс, регион (Almaty, Nur-Sultan, региональные), запрос на STEM/гуманитарный уклон.
+4) Формат ответа:
+   - Вопросы: пронумерованные, краткие и ясные.
+   - Результаты (примерно): топ-3 сферы с % и коротким объяснением.
+   - Профессии и проценты: по каждой сфере 3–5 профессий с % соответствия (проценты внутри сферы суммарно <= 100).
+   - Шаги: что сделать дальше (курсы/олимпиады/вуз по региону).
+5) Пиши кратко, без воды.`,
+      };
+
+      function getSystemPrompt() {
+        return SYSTEM_PROMPTS[currentMode];
+      }
+
+      // Check if API key is configured
+      function isApiConfigured() {
+        return (
+          API_KEY && API_KEY !== "%%GEMINI_API_KEY%%" && API_KEY.length > 10
+        );
+      }
+
+      // Initialize
+      document.addEventListener("DOMContentLoaded", () => {
+        autoResizeTextarea();
+        renderWelcome();
+        if (!isApiConfigured()) {
+          console.warn("Gemini API key is not configured");
+        }
+      });
+
+      function setMode(mode) {
+        if (mode === currentMode) return;
+        currentMode = mode;
+        conversationHistory = histories[currentMode];
+        document
+          .getElementById("modeAssistant")
+          .classList.toggle("active", mode === "assistant");
+        document
+          .getElementById("modeTest")
+          .classList.toggle("active", mode === "test");
+        renderWelcome();
+        const chatWindow = document.getElementById("chatWindow");
+        if (chatWindow.classList.contains("open")) {
+          chatWindow.classList.toggle("fullscreen", mode === "test");
+        }
+        addMessage(
+          `Режим переключен: ${
+            mode === "assistant"
+              ? "Ассистент (общие вопросы)"
+              : "Генератор профтестов"
+          }`,
+          "system"
+        );
+      }
+
+      function renderWelcome() {
+        const messagesContainer = document.getElementById("chatMessages");
+        if (currentMode === "assistant") {
+          messagesContainer.innerHTML = `
+              <div class="welcome-msg">
+                <div class="emoji">👋</div>
+                <h3>Привет!</h3>
+                <p>Я AI-ассистент на базе Gemini. Задайте мне любой вопрос!</p>
+              </div>
+            `;
+        } else {
+          messagesContainer.innerHTML = `
+              <div class="welcome-msg">
+                <div class="emoji">🧠</div>
+                <h3>Собрать профтест?</h3>
+                <p>Напиши класс, интересы, сколько вопросов нужно или сферу (если известна) — сгенерирую углублённый тест и подскажу профессии.</p>
+              </div>
+            `;
+        }
+      }
+
+      // Toggle chat window
+      function toggleChat() {
+        const chatWindow = document.getElementById("chatWindow");
+        const chatToggle = document.getElementById("chatToggle");
+
+        chatWindow.classList.toggle("open");
+        chatWindow.classList.toggle("fullscreen", currentMode === "test");
+        chatToggle.classList.toggle("active");
+
+        if (chatWindow.classList.contains("open")) {
+          document.getElementById("chatInput").focus();
+        }
+      }
+
+      // Add message to chat
+      function addMessage(text, type) {
+        const messagesContainer = document.getElementById("chatMessages");
+        const welcomeMsg = messagesContainer.querySelector(".welcome-msg");
+
+        if (welcomeMsg && type !== "system") {
+          welcomeMsg.remove();
+        }
+
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${type}`;
+
+        // Format code blocks
+        let formattedText = text
+          .replace(/```(\w+)?\n([\s\S]*?)```/g, "<pre><code>$2</code></pre>")
+          .replace(/`([^`]+)`/g, "<code>$1</code>")
+          .replace(/\n/g, "<br>");
+
+        messageDiv.innerHTML = formattedText;
+        messagesContainer.appendChild(messageDiv);
+
+        // Scroll to bottom
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+
+      // Show/hide typing indicator
+      function setTyping(show) {
+        const indicator = document.getElementById("typingIndicator");
+        indicator.classList.toggle("visible", show);
+
+        if (show) {
+          const messagesContainer = document.getElementById("chatMessages");
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+      }
+
+      // Send message
+      async function sendMessage() {
+        const input = document.getElementById("chatInput");
+        const sendBtn = document.getElementById("sendBtn");
+        const message = input.value.trim();
+
+        if (!message) return;
+
+        if (!isApiConfigured()) {
+          addMessage(
+            "⚠️ AI-ассистент временно недоступен. Попробуйте позже.",
+            "error"
+          );
+          return;
+        }
+
+        // Add user message
+        addMessage(message, "user");
+        input.value = "";
+        input.style.height = "auto";
+
+        // Add to history
+        conversationHistory.push({
+          role: "user",
+          parts: [{ text: message }],
+        });
+
+        // Disable input while processing
+        sendBtn.disabled = true;
+        setTyping(true);
+
+        try {
+          const response = await fetch(`${GEMINI_API_URL}?key=${API_KEY}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              contents: [
+                {
+                  role: "user",
+                  parts: [{ text: getSystemPrompt() }],
+                },
+                ...conversationHistory,
+              ],
+              generationConfig: {
+                temperature: 0.7,
+                topK: 40,
+                topP: 0.95,
+                maxOutputTokens: 2048,
+              },
+            }),
+          });
+
+          const data = await response.json();
+
+          if (data.error) {
+            throw new Error(data.error.message);
+          }
+
+          const botResponse = data.candidates[0].content.parts[0].text;
+
+          // Add to history
+          conversationHistory.push({
+            role: "model",
+            parts: [{ text: botResponse }],
+          });
+
+          // Add bot message
+          setTyping(false);
+          addMessage(botResponse, "bot");
+        } catch (error) {
+          setTyping(false);
+          console.error("Error:", error);
+          addMessage(`❌ Ошибка: ${error.message}`, "error");
+
+          // Remove failed message from history
+          conversationHistory.pop();
+        }
+
+        sendBtn.disabled = false;
+      }
+
+      // Handle Enter key
+      function handleKeyDown(event) {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          sendMessage();
+        }
+      }
+
+      // Auto-resize textarea
+      function autoResizeTextarea() {
+        const textarea = document.getElementById("chatInput");
+        textarea.addEventListener("input", function () {
+          this.style.height = "auto";
+          this.style.height = Math.min(this.scrollHeight, 120) + "px";
+        });
+      }
+
+      // Clear chat history
+      function clearChat() {
+        conversationHistory = [];
+        const messagesContainer = document.getElementById("chatMessages");
+        messagesContainer.innerHTML = `
+          <div class="welcome-msg">
+            <div class="emoji">👋</div>
+            <h3>Привет!</h3>
+            <p>Я AI-ассистент на базе Gemini. Задайте мне любой вопрос!</p>
+          </div>
+        `;
+      }
+      fetch("https://chatbot-gemini-worker.kengot1234567890.workers.dev", {
+        method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: "Hello!" })
+  });
+  console.log(response);
+
+    </script>
+  </body>
+</html>
